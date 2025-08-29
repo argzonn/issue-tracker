@@ -18,12 +18,10 @@ class DatabaseSeeder extends Seeder
 
         $tags = Tag::factory(8)->create();
 
-        // attach random tags
-        Issue::all()->each(function($issue) use ($tags) {
+        Issue::all()->each(function ($issue) use ($tags) {
             $issue->tags()->sync($tags->random(rand(0,3))->pluck('id')->all());
         });
 
-        // comments
         Comment::factory(40)->create();
     }
 }

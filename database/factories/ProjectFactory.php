@@ -10,6 +10,7 @@ class ProjectFactory extends Factory
     {
         $start = fake()->dateTimeBetween('-2 months','now');
         $deadline = (clone $start)->modify('+'.rand(10,60).' days');
+
         return [
             'name' => fake()->sentence(3),
             'description' => fake()->paragraph(),

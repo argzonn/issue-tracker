@@ -1,3 +1,4 @@
+
 <?php
 
 use App\Http\Controllers\ProjectController;
@@ -18,3 +19,4 @@ Route::post('/issues/{issue}/comments', [CommentController::class, 'store'])->na
 
 Route::post('/issues/{issue}/tags', [IssueTagController::class, 'attach'])->name('issues.tags.attach');
 Route::delete('/issues/{issue}/tags/{tag}', [IssueTagController::class, 'detach'])->name('issues.tags.detach');
+o

@@ -24,4 +24,10 @@
         </td>
       </tr>
     @empty
-      <tr><td colspan
+      <tr><td colspan="5" class="text-muted">No projects yet.</td></tr>
+    @endforelse
+  </tbody>
+</table>
+
+{{ $projects->links() }}
+@endsection
