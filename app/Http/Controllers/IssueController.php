@@ -13,16 +13,18 @@ class IssueController extends Controller
 {
     public function index()
     {
-        $query = Issue::with(['project','tags'])
-            ->when(request('status'), fn($q,$v) => $q->where('status',$v))
-            ->when(request('priority'), fn($q,$v) => $q->where('priority',$v))
-            ->when(request('tag_id'), fn(Builder $q,$v) => $q->whereHas('tags', fn($t)=>$t->where('tags.id',$v)))
-            ->latest();
+        $q = \App\Models\Issue::with(['project','tags'])->latest();
 
-        $issues = $query->paginate(10)->withQueryString();
-        $tags   = Tag::orderBy('name')->get();
+    if ($s = request('status'))   { $q->where('status', $s); }
+    if ($p = request('priority')) { $q->where('priority', $p); }
+    if ($tagId = request('tag_id')) {
+        $q->whereHas('tags', fn($t) => $t->where('tags.id', $tagId));
+    }
 
-        return view('issues.index', compact('issues','tags'));
+    $issues = $q->paginate(10)->withQueryString();
+    $tags   = \App\Models\Tag::orderBy('name')->get();
+
+    return view('issues.index', compact('issues','tags'));
     }
 
     public function create()
@@ -39,12 +41,12 @@ class IssueController extends Controller
         return redirect()->route('issues.show', $issue)->with('ok','Issue created.');
     }
 
-    public function show(Issue $issue)
+    public function show(\App\Models\Issue $issue)
     {
-        // comments via AJAX; tags loaded for the picker
-        $issue->load(['project','tags']);
-        $allTags = Tag::orderBy('name')->get();
-        return view('issues.show', compact('issue','allTags'));
+    $issue->load(['project','tags']);
+    $allTags = \App\Models\Tag::orderBy('name')->get();
+
+    return view('issues.show', compact('issue','allTags'));
     }
 
     public function edit(Issue $issue)
