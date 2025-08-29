@@ -2,22 +2,28 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use App\Models\Comment;
+use App\Models\Issue;
+use App\Models\Project;
+use App\Models\Tag;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
+        Project::factory(3)->create();
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        Issue::factory(18)->create();
+
+        $tags = Tag::factory(8)->create();
+
+        // attach random tags
+        Issue::all()->each(function($issue) use ($tags) {
+            $issue->tags()->sync($tags->random(rand(0,3))->pluck('id')->all());
+        });
+
+        // comments
+        Comment::factory(40)->create();
     }
 }
