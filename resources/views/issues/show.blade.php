@@ -4,8 +4,8 @@
 <h1 class="mb-1">{{ $issue->title }}</h1>
 <p class="text-muted mb-3">
   Project: <a href="{{ route('projects.show', $issue->project) }}">{{ $issue->project->name }}</a> ·
-  Status: <strong>{{ $issue->status }}</strong> ·
-  Priority: <strong>{{ $issue->priority }}</strong> ·
+  Status: @statusBadge($issue->status) ·
+  Priority: @priorityBadge($issue->priority) ·
   Due: <strong>{{ $issue->due_date }}</strong>
 </p>
 
