@@ -13,7 +13,7 @@ class IssueController extends Controller
 public function index()
 {
     // Base builder (eager load to avoid N+1)
-    $q = Issue::with(['project','tags']); // ← no ->latest() here
+    $q = Issue::with(['project', 'tags']);
 
     // Keyword search (AND across terms; OR within title/description)
     if ($kw = trim(request('q', ''))) {
@@ -58,8 +58,15 @@ public function index()
     $issues = $q->paginate(10)->withQueryString();
     $tags   = Tag::orderBy('name')->get();
 
-    return view('issues.index', compact('issues','tags'));
+    // AJAX: return only the list fragment
+    if (request()->ajax()) {
+        return view('issues._list', compact('issues'))->render();
+    }
+
+    // Full page
+    return view('issues.index', compact('issues', 'tags'));
 }
+
 
 
     public function create()
