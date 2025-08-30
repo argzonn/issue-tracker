@@ -6,6 +6,8 @@ use App\Models\Comment;
 use App\Models\Issue;
 use App\Models\Project;
 use App\Models\Tag;
+use App\Models\User; // <-- add this
+
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -23,5 +25,15 @@ class DatabaseSeeder extends Seeder
         });
 
         Comment::factory(40)->create();
+
+        // --- NEW: seed users and assign to issues ---
+        $users = User::factory()->count(5)->create();
+
+        Issue::all()->each(function ($issue) use ($users) {
+            $ids = $users->random(rand(0, min(3, $users->count())))->pluck('id')->all();
+            if ($ids) {
+                $issue->assignees()->syncWithoutDetaching($ids);
+            }
+        });
     }
 }

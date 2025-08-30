@@ -45,6 +45,33 @@
 
 <hr class="my-4">
 
+{{-- ASSIGNEES (chips) --}}
+<h4 class="mb-2">Assignees</h4>
+<div id="assignee-chips" class="mb-3">
+  @foreach($issue->assignees as $u)
+    <span class="badge rounded-pill text-bg-secondary me-2 align-middle" data-user-id="{{ $u->id }}">
+      {{ $u->name }}
+      <button type="button" class="btn btn-sm btn-link text-white ms-1 p-0 align-baseline assignee-detach" data-user-id="{{ $u->id }}">✕</button>
+    </span>
+  @endforeach
+</div>
+
+<div class="row g-2 align-items-center mb-4">
+  <div class="col-auto">
+    <select id="assignee-select" class="form-select">
+      <option value="">Assign a user…</option>
+      @foreach(\App\Models\User::query()->orderBy('name')->get(['id','name']) as $userOption)
+        <option value="{{ $userOption->id }}">{{ $userOption->name }}</option>
+      @endforeach
+    </select>
+  </div>
+  <div class="col-auto">
+    <button id="assignee-attach-btn" class="btn btn-outline-primary">Assign</button>
+  </div>
+</div>
+
+<hr class="my-4">
+
 {{-- COMMENTS --}}
 <h4 class="mb-2">Comments</h4>
 
@@ -75,7 +102,9 @@
   const issueId   = {{ $issue->id }};
   const csrf      = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
-  // ---- COMMENTS: load + paginate ----
+  // -----------------------------
+  // COMMENTS: load + paginate
+  // -----------------------------
   let nextUrl = `{{ route('issues.comments.index', $issue) }}`;
 
   async function loadComments(append=false){
@@ -110,7 +139,9 @@
     loadComments(true);
   });
 
-  // ---- COMMENTS: submit ----
+  // -----------------------------
+  // COMMENTS: submit
+  // -----------------------------
   document.getElementById('comment-form').addEventListener('submit', async function(e){
     e.preventDefault();
     const form = e.currentTarget;
@@ -130,7 +161,7 @@
 
     if(res.status === 201){
       form.reset();
-      // reload from first page to show newest (your API returns latest first)
+      // reload from first page to show newest
       nextUrl = `{{ route('issues.comments.index', $issue) }}`;
       loadComments(false);
       document.getElementById('comment-errors').style.display='none';
@@ -145,7 +176,9 @@
     }
   });
 
-  // ---- TAGS: attach ----
+  // -----------------------------
+  // TAGS: attach
+  // -----------------------------
   document.getElementById('tag-attach-btn').addEventListener('click', async function(){
     const select = document.getElementById('tag-select');
     const tagId  = select.value;
@@ -170,7 +203,9 @@
     }
   });
 
-  // ---- TAGS: detach (event delegation) ----
+  // -----------------------------
+  // TAGS: detach (delegation)
+  // -----------------------------
   document.getElementById('tag-chips').addEventListener('click', async function(e){
     if(!e.target.classList.contains('tag-detach')) return;
     const tagId = e.target.getAttribute('data-tag-id');
@@ -197,6 +232,66 @@
         ${t.color ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${escapeHtml(t.color)};margin-right:6px;"></span>` : ''}
         ${escapeHtml(t.name)}
         <button type="button" class="btn btn-sm btn-link text-white ms-1 p-0 align-baseline tag-detach" data-tag-id="${t.id}">✕</button>
+      `;
+      wrap.appendChild(span);
+    });
+  }
+
+  // -----------------------------
+  // ASSIGNEES: attach
+  // -----------------------------
+  document.getElementById('assignee-attach-btn').addEventListener('click', async function(){
+    const select = document.getElementById('assignee-select');
+    const userId = select.value;
+    if(!userId) return;
+
+    const res = await fetch(`{{ route('issues.assignees.attach', $issue) }}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':'application/json',
+        'X-CSRF-TOKEN': csrf,
+        'X-Requested-With':'XMLHttpRequest'
+      },
+      body: JSON.stringify({ user_id: userId })
+    });
+
+    if(res.ok){
+      const j = await res.json();
+      renderAssignees(j.assignees || []);
+      select.value = '';
+    } else {
+      alert('Failed to assign user');
+    }
+  });
+
+  // -----------------------------
+  // ASSIGNEES: detach (delegation)
+  // -----------------------------
+  document.getElementById('assignee-chips').addEventListener('click', async function(e){
+    if(!e.target.classList.contains('assignee-detach')) return;
+    const userId = e.target.getAttribute('data-user-id');
+    const res = await fetch(`/issues/${issueId}/assignees/${userId}`, {
+      method: 'DELETE',
+      headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With':'XMLHttpRequest' }
+    });
+    if(res.ok){
+      // optimistic update; or re-render from server if you prefer
+      e.target.closest('[data-user-id]').remove();
+    } else {
+      alert('Failed to remove assignee');
+    }
+  });
+
+  function renderAssignees(users){
+    const wrap = document.getElementById('assignee-chips');
+    wrap.innerHTML = '';
+    users.forEach(u => {
+      const span = document.createElement('span');
+      span.className = 'badge rounded-pill text-bg-secondary me-2 align-middle';
+      span.setAttribute('data-user-id', u.id);
+      span.innerHTML = `
+        ${escapeHtml(u.name)}
+        <button type="button" class="btn btn-sm btn-link text-white ms-1 p-0 align-baseline assignee-detach" data-user-id="${u.id}">✕</button>
       `;
       wrap.appendChild(span);
     });

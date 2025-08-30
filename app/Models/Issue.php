@@ -21,4 +21,10 @@ class Issue extends Model
     public function project(): BelongsTo { return $this->belongsTo(Project::class); }
     public function tags(): BelongsToMany { return $this->belongsToMany(Tag::class); }
     public function comments(): HasMany { return $this->hasMany(Comment::class)->latest(); }
+    public function assignees() {
+    return $this->belongsToMany(User::class)
+        ->withTimestamps()
+        ->withPivot(['created_at','updated_at']);
+}
+
 }
