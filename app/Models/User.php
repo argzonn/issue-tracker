@@ -6,16 +6,38 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable
 {
-    public function assignedIssues() {
-    return $this->belongsToMany(Issue::class)
-        ->withTimestamps();
-}
-
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
+
+    // -------------------------------
+    // Relations
+    // -------------------------------
+
+    /**
+     * Issues this user is assigned to (many-to-many).
+     */
+    public function assignedIssues(): BelongsToMany
+    {
+        return $this->belongsToMany(Issue::class)
+            ->withTimestamps();
+    }
+
+    /**
+     * Projects this user owns (one-to-many).
+     */
+    public function projects(): HasMany
+    {
+        return $this->hasMany(Project::class, 'user_id');
+    }
+
+    // -------------------------------
+    // Defaults
+    // -------------------------------
 
     /**
      * The attributes that are mass assignable.

@@ -10,6 +10,18 @@
 </head>
 <body>
 <nav class="navbar navbar-light bg-light mb-3">
+  <div style="display:flex; gap:1rem; align-items:center;">
+    @auth
+        <span>Hello, {{ auth()->user()->name }}</span>
+        <form action="{{ route('logout') }}" method="POST" style="display:inline">
+            @csrf
+            <button type="submit" class="btn btn-sm">Logout</button>
+        </form>
+    @else
+        <a href="{{ route('login') }}" class="btn btn-sm">Login</a>
+    @endauth
+</div>
+
   <div class="container d-flex justify-content-between">
     <a class="navbar-brand" href="{{ route('projects.index') }}">Issue Tracker</a>
     <div>

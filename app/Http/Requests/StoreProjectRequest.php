@@ -8,8 +8,9 @@ class StoreProjectRequest extends FormRequest {
         return [
             'name'        => ['required','string','max:255'],
             'description' => ['nullable','string'],
-            'start_date'  => ['nullable','date','before_or_equal:deadline'],
+            'start_date'  => ['nullable','date'],
             'deadline'    => ['nullable','date','after_or_equal:start_date'],
+            'is_public'   => ['sometimes','boolean'],
         ];
     }
 }
