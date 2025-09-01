@@ -64,6 +64,11 @@
 
   {{-- LIST CONTAINER (AJAX renders into here) --}}
   <div id="issue-list">
+    <div class="row mb-3">
+  <div class="col-md-6">
+    <input id="issueSearch" class="form-control" placeholder="Search issues…">
+  </div>
+</div>
     @include('issues._list', ['issues' => $issues])
   </div>
 </div>

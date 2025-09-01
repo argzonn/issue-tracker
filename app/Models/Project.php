@@ -1,10 +1,11 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Project extends Model
 {
@@ -15,13 +16,13 @@ class Project extends Model
         'description',
         'start_date',
         'deadline',
-        'user_id',     // owner
-        'is_public',   // visibility toggle
+        'owner_id',   // single, consistent owner FK
+        'is_public',  // keep only if the column exists
     ];
 
     protected $casts = [
-        'start_date' => 'datetime',
-        'deadline'   => 'datetime',
+        'start_date' => 'date',
+        'deadline'   => 'date',
         'is_public'  => 'boolean',
     ];
 
@@ -30,8 +31,8 @@ class Project extends Model
         return $this->hasMany(Issue::class);
     }
 
-    public function owner()
+    public function owner(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(User::class, 'owner_id');
     }
 }

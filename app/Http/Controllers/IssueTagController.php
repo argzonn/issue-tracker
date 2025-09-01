@@ -1,37 +1,32 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
 use App\Models\Issue;
 use App\Models\Tag;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class IssueTagController extends Controller
 {
-    public function attach(Request $request, Issue $issue)
+    public function store(Request $request, Issue $issue): JsonResponse
     {
-        // Only the project owner may change tags
-        $this->authorize('update', $issue->project);
-
-        $data = $request->validate([
-            'tag_id' => ['required', 'exists:tags,id'],
-        ]);
-
+        $data = $request->validate(['tag_id'=>['required','integer','exists:tags,id']]);
         $issue->tags()->syncWithoutDetaching([$data['tag_id']]);
 
         return response()->json([
-            'tags' => $issue->tags()->get(['id', 'name', 'color']),
+            'ok' => true,
+            'tags' => $issue->tags()->select('tags.id','tags.name','tags.color')->orderBy('name')->get(),
         ]);
     }
 
-    public function detach(Issue $issue, Tag $tag)
+    public function destroy(Issue $issue, Tag $tag): JsonResponse
     {
-        $this->authorize('update', $issue->project);
-
         $issue->tags()->detach($tag->id);
 
         return response()->json([
-            'tags' => $issue->tags()->get(['id', 'name', 'color']),
+            'ok' => true,
+            'tags' => $issue->tags()->select('tags.id','tags.name','tags.color')->orderBy('name')->get(),
         ]);
     }
 }

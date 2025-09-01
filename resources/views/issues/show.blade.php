@@ -1,12 +1,38 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    // fallback badge rendering if you don't have @statusBadge / @priorityBadge directives
+    $statusBadge = fn(string $s) => [
+        'open' => 'secondary',
+        'in_progress' => 'info',
+        'closed' => 'success',
+    ][$s] ?? 'secondary';
+
+    $priorityBadge = fn(string $p) => [
+        'low' => 'secondary',
+        'medium' => 'primary',
+        'high' => 'warning',
+        'urgent' => 'danger',
+    ][$p] ?? 'secondary';
+@endphp
+
 <h1 class="mb-1">{{ $issue->title }}</h1>
+
 <p class="text-muted mb-3">
-  Project: <a href="{{ route('projects.show', $issue->project) }}">{{ $issue->project->name }}</a> ·
-  Status: @statusBadge($issue->status) ·
-  Priority: @priorityBadge($issue->priority) ·
-  Due: <strong>{{ $issue->due_date }}</strong>
+  Project:
+  <a href="{{ route('projects.show', $issue->project) }}">{{ $issue->project->name }}</a>
+  ·
+  <span>Status:
+    <span class="badge bg-{{ $statusBadge($issue->status) }}">{{ \Illuminate\Support\Str::headline($issue->status) }}</span>
+  </span>
+  ·
+  <span>Priority:
+    <span class="badge bg-{{ $priorityBadge($issue->priority) }}">{{ \Illuminate\Support\Str::headline($issue->priority) }}</span>
+  </span>
+  ·
+  Due:
+  <strong>{{ optional($issue->due_date)->format('Y-m-d') ?? '—' }}</strong>
 </p>
 
 @if($issue->description)
@@ -89,10 +115,10 @@
       <form id="comment-form" class="row g-2">
         @csrf
         <div class="col-md-3">
-          <input name="author_name" class="form-control" placeholder="Your name">
+          <input name="author_name" class="form-control" placeholder="Your name" maxlength="100" required>
         </div>
         <div class="col-md-7">
-          <input name="body" class="form-control" placeholder="Write a comment…">
+          <input name="body" class="form-control" placeholder="Write a comment…" maxlength="2000" required>
         </div>
         <div class="col-md-2">
           <button class="btn btn-primary w-100">Add</button>
@@ -110,87 +136,95 @@
 <ul id="comments" class="list-group mb-3"></ul>
 <button id="load-more" class="btn btn-outline-secondary" style="display:none;">Load more</button>
 
-{{-- Inline JS (no Vite needed) --}}
+{{-- Inline JS (simple + robust) --}}
 <script>
 (function(){
   const issueId   = {{ $issue->id }};
-  const csrfMeta  = document.querySelector('meta[name="csrf-token"]');
-  const csrf      = csrfMeta ? csrfMeta.getAttribute('content') : '';
+  const csrf      = (document.querySelector('meta[name="csrf-token"]')||{}).getAttribute?.('content') || '';
 
-  // -----------------------------
+  // Utility
+  const escapeHtml = (s) => (s ?? '').toString().replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+
+  // =========================
   // COMMENTS: load + paginate
-  // -----------------------------
+  // =========================
   let nextUrl = `{{ route('issues.comments.index', $issue) }}`;
 
   async function loadComments(append=false){
-    if(!nextUrl){ return; }
-    const res = await fetch(nextUrl, { headers: { 'X-Requested-With':'XMLHttpRequest' }});
-    if(!res.ok){ console.error('Failed to load comments'); return; }
+    if (!nextUrl) return;
+    const res = await fetch(nextUrl, { headers: { 'Accept': 'application/json', 'X-Requested-With':'XMLHttpRequest' }});
+    if (!res.ok) return console.error('Failed to load comments');
     const json = await res.json();
 
+    // two possible shapes: {ok, html, next} OR {data, next_page_url}
     const ul = document.getElementById('comments');
-    if(!ul) return;
-    const items = json.data || [];
-    const frag = document.createDocumentFragment();
+    if (!ul) return;
 
-    items.forEach(c => {
-      const li = document.createElement('li');
-      li.className = 'list-group-item';
-      li.innerHTML = `
-        <div class="d-flex justify-content-between">
-          <strong>${escapeHtml(c.author_name)}</strong>
-          <small class="text-muted">${escapeHtml(c.created_at_human)}</small>
-        </div>
-        <div>${escapeHtml(c.body)}</div>
-      `;
-      frag.appendChild(li);
-    });
+    if (json.html !== undefined) {
+      // server rendered partial path
+      if (append) ul.insertAdjacentHTML('beforeend', json.html);
+      else { ul.innerHTML = json.html; }
+      nextUrl = json.next || null;
+    } else {
+      // JSON items path
+      const items = json.data || [];
+      const frag = document.createDocumentFragment();
+      items.forEach(c => {
+        const li = document.createElement('li');
+        li.className = 'list-group-item';
+        li.innerHTML = `
+          <div class="d-flex justify-content-between">
+            <strong>${escapeHtml(c.author_name)}</strong>
+            <small class="text-muted">${escapeHtml(c.created_at_human ?? c.created_at ?? '')}</small>
+          </div>
+          <div class="mt-1">${escapeHtml(c.body)}</div>
+        `;
+        frag.appendChild(li);
+      });
+      if (append) ul.appendChild(frag); else { ul.innerHTML = ''; ul.appendChild(frag); }
+      nextUrl = json.next_page_url || null;
+    }
 
-    if(append){ ul.appendChild(frag); } else { ul.innerHTML=''; ul.appendChild(frag); }
-    nextUrl = json.next_page_url;
     const btnMore = document.getElementById('load-more');
-    if(btnMore) btnMore.style.display = nextUrl ? 'inline-block' : 'none';
+    if (btnMore) btnMore.style.display = nextUrl ? 'inline-block' : 'none';
   }
 
-  const btnMoreRef = document.getElementById('load-more');
-  if(btnMoreRef){
-    btnMoreRef.addEventListener('click', function(){ loadComments(true); });
-  }
+  document.getElementById('load-more')?.addEventListener('click', () => loadComments(true));
 
-  // -----------------------------
-  // COMMENTS: submit (only if form exists)
-  // -----------------------------
+  // submit comment
   const commentForm = document.getElementById('comment-form');
-  if(commentForm){
-    commentForm.addEventListener('submit', async function(e){
+  if (commentForm) {
+    commentForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const form = e.currentTarget;
-      const body = {
-        author_name: form.author_name.value.trim(),
-        body: form.body.value.trim(),
-      };
+      const fd = new FormData(commentForm);
+      const payload = Object.fromEntries(fd.entries());
+
       const res = await fetch(`{{ route('issues.comments.store', $issue) }}`, {
         method: 'POST',
         headers: {
           'Content-Type':'application/json',
+          'Accept': 'application/json',
           'X-CSRF-TOKEN': csrf,
           'X-Requested-With':'XMLHttpRequest'
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify(payload),
       });
 
-      if(res.status === 201){
-        form.reset();
+      if (res.ok && (res.status === 200 || res.status === 201)) {
+        // reset form, then refresh first page & prepend new comment automatically
+        commentForm.reset();
+        // simplest: reload the first page and render fresh
         nextUrl = `{{ route('issues.comments.index', $issue) }}`;
-        loadComments(false);
+        await loadComments(false);
+
         const err = document.getElementById('comment-errors');
-        if(err){ err.style.display='none'; err.innerHTML=''; }
-      } else if(res.status === 422){
+        if (err) { err.style.display='none'; err.innerHTML=''; }
+      } else if (res.status === 422) {
         const j = await res.json();
         const err = document.getElementById('comment-errors');
-        if(err){
+        if (err) {
           err.style.display='block';
-          err.innerHTML = Object.values(j.errors||{}).flat().join('<br>');
+          err.innerHTML = Object.values(j.errors || {}).flat().join('<br>');
         }
       } else {
         alert('Failed to add comment');
@@ -198,61 +232,50 @@
     });
   }
 
-  // -----------------------------
-  // TAGS: attach (only if button exists => owner)
-  // -----------------------------
-  const tagAttachBtn = document.getElementById('tag-attach-btn');
-  if(tagAttachBtn){
-    tagAttachBtn.addEventListener('click', async function(){
-      const select = document.getElementById('tag-select');
-      if(!select) return;
-      const tagId  = select.value;
-      if(!tagId) return;
+  // initial load
+  loadComments(false);
 
-      const res = await fetch(`{{ route('issues.tags.attach', $issue) }}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type':'application/json',
-          'X-CSRF-TOKEN': csrf,
-          'X-Requested-With':'XMLHttpRequest'
-        },
-        body: JSON.stringify({ tag_id: tagId })
-      });
+  // =========================
+  // TAGS: attach / detach
+  // =========================
+  document.getElementById('tag-attach-btn')?.addEventListener('click', async () => {
+    const select = document.getElementById('tag-select');
+    const tagId  = select?.value;
+    if (!tagId) return;
 
-      if(res.ok){
-        const j = await res.json();
-        renderTags(j.tags || []);
-        select.value = '';
-      } else {
-        alert('Failed to attach tag');
-      }
+    const res = await fetch(`{{ route('issues.tags.store', $issue) }}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':'application/json',
+        'Accept':'application/json',
+        'X-CSRF-TOKEN': csrf,
+        'X-Requested-With':'XMLHttpRequest'
+      },
+      body: JSON.stringify({ tag_id: Number(tagId) })
     });
-  }
 
-  // -----------------------------
-  // TAGS: detach (delegation; only if owner sees buttons)
-  // -----------------------------
-  const tagChips = document.getElementById('tag-chips');
-  if(tagChips){
-    tagChips.addEventListener('click', async function(e){
-      if(!e.target.classList.contains('tag-detach')) return;
-      const tagId = e.target.getAttribute('data-tag-id');
-      const res = await fetch(`/issues/${issueId}/tags/${tagId}`, {
-        method: 'DELETE',
-        headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With':'XMLHttpRequest' }
-      });
-      if(res.ok){
-        const j = await res.json();
-        renderTags(j.tags || []);
-      } else {
-        alert('Failed to detach tag');
-      }
+    if (!res.ok) return alert('Failed to attach tag');
+    const data = await res.json();
+    if (data?.tags) renderTags(data.tags);
+    select.value = '';
+  });
+
+  document.getElementById('tag-chips')?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.tag-detach');
+    if (!btn) return;
+    const tagId = btn.getAttribute('data-tag-id');
+    const res = await fetch(`/issues/${issueId}/tags/${tagId}`, {
+      method: 'DELETE',
+      headers: { 'Accept':'application/json', 'X-CSRF-TOKEN': csrf, 'X-Requested-With':'XMLHttpRequest' }
     });
-  }
+    if (!res.ok) return alert('Failed to detach tag');
+    const data = await res.json();
+    if (data?.tags) renderTags(data.tags);
+  });
 
   function renderTags(tags){
     const wrap = document.getElementById('tag-chips');
-    if(!wrap) return;
+    if (!wrap) return;
     wrap.innerHTML = '';
     tags.forEach(t => {
       const span = document.createElement('span');
@@ -269,80 +292,60 @@
     });
   }
 
-    // -----------------------------
-  // ASSIGNEES: attach  (robust)
-  // -----------------------------
-  document.getElementById('assignee-attach-btn').addEventListener('click', async function(){
+  // =========================
+  // ASSIGNEES: attach / detach
+  // =========================
+  document.getElementById('assignee-attach-btn')?.addEventListener('click', async () => {
     const select = document.getElementById('assignee-select');
-    const userId = select.value;
+    const userId = select?.value;
     if (!userId) return;
 
     try {
-      const res = await fetch(`{{ route('issues.assignees.attach', $issue) }}`, {
+      const res = await fetch(`{{ route('issues.assignees.store', $issue) }}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',            // ensure JSON response
+          'Accept': 'application/json',
           'X-CSRF-TOKEN': csrf,
-          'X-Requested-With': 'XMLHttpRequest',
+          'X-Requested-With':'XMLHttpRequest',
         },
-        credentials: 'same-origin',                // send session cookie
-        body: JSON.stringify({ user_id: userId })
+        body: JSON.stringify({ user_id: Number(userId) })
       });
 
       if (!res.ok) {
-        const text = await res.text();             // helpful in console
-        console.error('Assign failed', res.status, text);
+        const t = await res.text();
+        console.error('Assign failed', res.status, t);
         alert(`Failed to assign user (HTTP ${res.status})`);
         return;
       }
 
-      // Parse JSON only if present
-      let data = {};
       const ct = (res.headers.get('content-type') || '').toLowerCase();
-      if (ct.includes('application/json')) {
-        data = await res.json();
-      }
-
-      if (data.assignees) {
-        renderAssignees(data.assignees);
-      } else {
-        // Fallback: if empty/HTML came back, just reload to reflect change
-        location.reload();
-      }
-
+      let data = {};
+      if (ct.includes('application/json')) data = await res.json();
+      if (data?.assignees) renderAssignees(data.assignees); else location.reload();
       select.value = '';
-    } catch (e) {
-      console.error(e);
-      alert('Failed to assign user (network error)');
+    } catch (err) {
+      console.error(err);
+      alert('Network error while assigning user');
     }
   });
 
-  // -----------------------------
-  // ASSIGNEES: detach (delegation; only if owner sees buttons)
-  // -----------------------------
-  const assigneeChips = document.getElementById('assignee-chips');
-  if(assigneeChips){
-    assigneeChips.addEventListener('click', async function(e){
-      if(!e.target.classList.contains('assignee-detach')) return;
-      const userId = e.target.getAttribute('data-user-id');
-      const res = await fetch(`/issues/${issueId}/assignees/${userId}`, {
-        method: 'DELETE',
-        headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With':'XMLHttpRequest' }
-      });
-      if(res.ok){
-        // optimistic update; or re-render from server if you prefer
-        const chip = e.target.closest('[data-user-id]');
-        if(chip) chip.remove();
-      } else {
-        alert('Failed to remove assignee');
-      }
+  document.getElementById('assignee-chips')?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.assignee-detach');
+    if (!btn) return;
+    const userId = btn.getAttribute('data-user-id');
+    const res = await fetch(`/issues/${issueId}/assignees/${userId}`, {
+      method: 'DELETE',
+      headers: { 'Accept':'application/json', 'X-CSRF-TOKEN': csrf, 'X-Requested-With':'XMLHttpRequest' }
     });
-  }
+    if (!res.ok) return alert('Failed to remove assignee');
+    // optimistic remove; or re-render from server if you prefer
+    btn.closest('[data-user-id]')?.remove();
+  });
 
   function renderAssignees(users){
     const wrap = document.getElementById('assignee-chips');
-    if(!wrap) return;
+    if (!wrap) return;
     wrap.innerHTML = '';
     users.forEach(u => {
       const span = document.createElement('span');
@@ -357,11 +360,6 @@
       wrap.appendChild(span);
     });
   }
-
-  function escapeHtml(s){ return (s??'').toString().replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])); }
-
-  // initial load
-  loadComments(false);
 })();
 </script>
 @endsection
