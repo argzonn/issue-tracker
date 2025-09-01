@@ -33,7 +33,7 @@ class IssueController extends Controller
             $uid = auth()->id();
             $q->where(function ($w) use ($uid) {
                 $w->where('projects.is_public', true)
-                  ->orWhere('projects.user_id', $uid)
+                  ->orWhere('projects.owner_id', $uid)
                   ->orWhereExists(function ($sub) use ($uid) {
                       $sub->from('issue_user')
                           ->whereColumn('issue_user.issue_id', 'issues.id')
@@ -59,9 +59,11 @@ class IssueController extends Controller
         // Filters
         if ($s = request('status'))   { $q->where('issues.status', $s); }
         if ($p = request('priority')) { $q->where('issues.priority', $p); }
-        if ($tagId = (int) request('tag_id')) {
+        $tagId = (int) (request('tag_id') ?? request('tag'));
+        if ($tagId) {
             $q->whereHas('tags', fn ($t) => $t->where('tags.id', $tagId));
         }
+        
 
         // Sorting
         switch (request('sort')) {
@@ -97,7 +99,7 @@ class IssueController extends Controller
     public function create()
     {
         // Only allow creating issues under projects the user owns
-        $projects = Project::where('user_id', auth()->id())
+        $projects = Project::where('owner_id', auth()->id())
             ->orderBy('name')
             ->get();
 
@@ -138,7 +140,7 @@ class IssueController extends Controller
 
         return view('issues.edit', [
             'issue'    => $issue,
-            'projects' => Project::where('user_id', auth()->id())->orderBy('name')->get(),
+            'projects' => Project::where('owner_id', auth()->id())->orderBy('name')->get(),
         ]);
     }
 

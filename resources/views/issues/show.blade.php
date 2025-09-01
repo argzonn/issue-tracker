@@ -260,18 +260,30 @@
     select.value = '';
   });
 
-  document.getElementById('tag-chips')?.addEventListener('click', async (e) => {
-    const btn = e.target.closest('.tag-detach');
-    if (!btn) return;
-    const tagId = btn.getAttribute('data-tag-id');
-    const res = await fetch(`/issues/${issueId}/tags/${tagId}`, {
-      method: 'DELETE',
-      headers: { 'Accept':'application/json', 'X-CSRF-TOKEN': csrf, 'X-Requested-With':'XMLHttpRequest' }
-    });
-    if (!res.ok) return alert('Failed to detach tag');
-    const data = await res.json();
-    if (data?.tags) renderTags(data.tags);
+document.getElementById('tag-chips')?.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.tag-detach');
+  if (!btn) return;
+
+  const tagId = btn.getAttribute('data-tag-id');
+  const res = await fetch(`/issues/${issueId}/tags/${tagId}`, {
+    method: 'DELETE',
+    headers: {
+      'Accept': 'application/json',
+      'X-CSRF-TOKEN': csrf,
+      'X-Requested-With': 'XMLHttpRequest'
+    }
   });
+
+  let data = null;
+  try { data = await res.json(); } catch {}
+
+  if (res.ok && data && Array.isArray(data.tags)) {
+    renderTags(data.tags);
+  } else {
+    console.error('Tag detach failed', res.status, data);
+    alert('Failed to detach tag');
+  }
+});
 
   function renderTags(tags){
     const wrap = document.getElementById('tag-chips');
@@ -285,7 +297,7 @@
         ${t.color ? `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${escapeHtml(t.color)};margin-right:6px;"></span>` : ''}
         ${escapeHtml(t.name)}
         @can('update', $issue->project)
-          <button type="button" class="btn btn-sm btn-link text-white ms-1 p-0 align-baseline tag-detach" data-tag-id="\${t.id}">✕</button>
+          <button type="button" class="btn btn-sm btn-link text-white ms-1 p-0 align-baseline tag-detach" data-tag-id="${t.id}">✕</button>
         @endcan
       `;
       wrap.appendChild(span);
@@ -330,18 +342,30 @@
     }
   });
 
-  document.getElementById('assignee-chips')?.addEventListener('click', async (e) => {
-    const btn = e.target.closest('.assignee-detach');
-    if (!btn) return;
-    const userId = btn.getAttribute('data-user-id');
-    const res = await fetch(`/issues/${issueId}/assignees/${userId}`, {
-      method: 'DELETE',
-      headers: { 'Accept':'application/json', 'X-CSRF-TOKEN': csrf, 'X-Requested-With':'XMLHttpRequest' }
-    });
-    if (!res.ok) return alert('Failed to remove assignee');
-    // optimistic remove; or re-render from server if you prefer
-    btn.closest('[data-user-id]')?.remove();
+document.getElementById('assignee-chips')?.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.assignee-detach');
+  if (!btn) return;
+
+  const userId = btn.getAttribute('data-user-id');
+  const res = await fetch(`/issues/${issueId}/assignees/${userId}`, {
+    method: 'DELETE',
+    headers: {
+      'Accept': 'application/json',
+      'X-CSRF-TOKEN': csrf,
+      'X-Requested-With': 'XMLHttpRequest'
+    }
   });
+
+  let data = null;
+  try { data = await res.json(); } catch {}
+
+  if (res.ok && data && Array.isArray(data.assignees)) {
+    renderAssignees(data.assignees);
+  } else {
+    console.error('Assignee detach failed', res.status, data);
+    alert('Failed to remove assignee');
+  }
+});
 
   function renderAssignees(users){
     const wrap = document.getElementById('assignee-chips');
@@ -354,7 +378,7 @@
       span.innerHTML = `
         ${escapeHtml(u.name)}
         @can('update', $issue->project)
-          <button type="button" class="btn btn-sm btn-link text-white ms-1 p-0 align-baseline assignee-detach" data-user-id="\${u.id}">✕</button>
+          <button type="button" class="btn btn-sm btn-link text-white ms-1 p-0 align-baseline assignee-detach" data-user-id="${u.id}">✕</button>
         @endcan
       `;
       wrap.appendChild(span);
