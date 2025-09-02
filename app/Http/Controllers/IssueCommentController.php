@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Issue;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use App\Http\Requests\IssueCommentStoreRequest;
 use Illuminate\Support\Facades\View;
 
 class IssueCommentController extends Controller
@@ -17,13 +17,9 @@ class IssueCommentController extends Controller
         return response()->json(['ok'=>true,'html'=>$html,'next'=>$comments->nextPageUrl()]);
     }
 
-    public function store(Request $request, Issue $issue): JsonResponse
+    public function store(IssueCommentStoreRequest $request, Issue $issue): JsonResponse
     {
-        $data = $request->validate([
-            'author_name' => ['required','string','max:100'],
-            'body' => ['required','string','max:2000'],
-        ]);
-        $comment = $issue->comments()->create($data);
+        $comment = $issue->comments()->create($request->validated());
 
         $html = View::make('issues.partials.comment-items', ['comments' => collect([$comment])])->render();
 
