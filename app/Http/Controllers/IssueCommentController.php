@@ -2,6 +2,11 @@
 
 namespace App\Http\Controllers;
 
+<<<<<<< HEAD
+=======
+use App\Models\Issue;
+use Illuminate\Http\Request;
+>>>>>>> fix/comments-ajax
 use App\Http\Requests\IssueCommentStoreRequest;
 use App\Models\Issue;
 use Illuminate\Http\JsonResponse;
@@ -10,6 +15,7 @@ use Throwable;
 
 class IssueCommentController extends Controller
 {
+<<<<<<< HEAD
     public function store(IssueCommentStoreRequest $request, Issue $issue): JsonResponse
     {
         try {
@@ -40,5 +46,34 @@ class IssueCommentController extends Controller
             Log::error('Issue comment store failed', ['exception' => $e]);
             return response()->json(['ok' => false, 'message' => 'Server error while adding comment.'], 500);
         }
+=======
+    public function index(Request $request, Issue $issue)
+    {
+        $comments = $issue->comments()->latest()->paginate(10);
+
+        $html = view('issues.partials.comment-items', [
+            'comments' => $comments->items(),
+        ])->render();
+
+        return response()->json([
+            'html' => $html,
+            'next' => $comments->hasMorePages() ? $comments->nextPageUrl() : null,
+        ]);
+>>>>>>> fix/comments-ajax
+    }
+
+    public function store(IssueCommentStoreRequest $request, Issue $issue)
+    {
+        $comment = $issue->comments()->create($request->validated());
+
+        $html = view('issues.partials.comment-items', [
+            'comments' => [$comment],
+        ])->render();
+
+        return response()->json([
+            'ok'    => true,
+            'html'  => $html,
+            'count' => $issue->comments()->count(),
+        ], 201);
     }
 }
