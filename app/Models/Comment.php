@@ -4,13 +4,16 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Comment extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['issue_id','author_name','body'];
+    // Make writes impossible to fail because of mass-assignment rules
+    protected $guarded = []; // ['issue_id','author_name','body'] would also work
 
-    public function issue(): BelongsTo { return $this->belongsTo(Issue::class); }
+    public function issue()
+    {
+        return $this->belongsTo(Issue::class);
+    }
 }

@@ -4,28 +4,23 @@ namespace App\Http\Controllers;
 
 use App\Models\Issue;
 use App\Models\Tag;
-use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 class IssueTagController extends Controller
 {
-    public function attach(Request $request, Issue $issue)
+    public function attach(Issue $issue, Tag $tag): JsonResponse
     {
-        $data = $request->validate(['tag_id' => ['required','exists:tags,id']]);
-        $issue->tags()->syncWithoutDetaching([$data['tag_id']]);
-
-        return response()->json([
-            'ok' => true,
-            'tags' => $issue->tags()->orderBy('name')->get(['id','name','color']),
-        ]);
+        $this->authorize('update', $issue->project); // owner-only
+        $issue->tags()->syncWithoutDetaching([$tag->id]);
+        $html = view('issues.partials.tag-chips', ['issue' => $issue->fresh('tags')])->render();
+        return response()->json(['ok' => true, 'html' => $html], 200);
     }
 
-    public function detach(Issue $issue, Tag $tag)
+    public function detach(Issue $issue, Tag $tag): JsonResponse
     {
+        $this->authorize('update', $issue->project);
         $issue->tags()->detach($tag->id);
-
-        return response()->json([
-            'ok' => true,
-            'tags' => $issue->tags()->orderBy('name')->get(['id','name','color']),
-        ]);
+        $html = view('issues.partials.tag-chips', ['issue' => $issue->fresh('tags')])->render();
+        return response()->json(['ok' => true, 'html' => $html], 200);
     }
 }

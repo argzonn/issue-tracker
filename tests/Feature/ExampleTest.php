@@ -2,18 +2,19 @@
 
 namespace Tests\Feature;
 
-// use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class ExampleTest extends TestCase
 {
-    /**
-     * A basic test example.
-     */
-    public function test_the_application_returns_a_successful_response(): void
+    public function test_root_redirects_to_projects_index(): void
     {
-        $response = $this->get('/');
+        // Laravel >=10 has assertRedirectToRoute; if not, use assertRedirect(route(...)) below.
+        $this->get('/')->assertRedirectToRoute('projects.index');
+        // $this->get('/')->assertRedirect(route('projects.index')); // fallback
+    }
 
-        $response->assertStatus(200);
+    public function test_projects_index_is_publicly_accessible(): void
+    {
+        $this->get(route('projects.index'))->assertOk();
     }
 }

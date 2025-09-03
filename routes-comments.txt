@@ -1,0 +1,6 @@
+
+  GET|HEAD   issues/{issue}/comments issues.comments.index › IssueCommentCont…
+  POST       issues/{issue}/comments issues.comments.store › IssueCommentCont…
+
+                                                            Showing [2] routes
+

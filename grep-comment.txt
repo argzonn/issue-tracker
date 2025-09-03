@@ -1,0 +1,77 @@
+app/Models/Issue.php:41:    public function comments()
+app/Models/Issue.php:43:        return $this->hasMany(Comment::class)->latest();
+app/Models/Issue.php:86:        return $q->with(['project'])->withCount('comments');
+app/Models/Comment.php:8:class Comment extends Model
+app/Http/Requests/CommentStoreRequest:7:class CommentStoreRequest extends FormRequest
+app/Http/Controllers/CommentController.php:5:use App\Http\Requests\StoreCommentRequest;
+app/Http/Controllers/CommentController.php:8:class CommentController extends Controller
+app/Http/Controllers/CommentController.php:11:     * Require login only for creating comments.
+app/Http/Controllers/CommentController.php:22:        $comments = $issue->comments()->latest()->paginate($perPage);
+app/Http/Controllers/CommentController.php:25:            'data' => $comments->getCollection()->map(fn($c) => [
+app/Http/Controllers/CommentController.php:32:            'next_page_url' => $comments->nextPageUrl(),
+app/Http/Controllers/CommentController.php:36:    public function store(StoreCommentRequest $request, Issue $issue)
+app/Http/Controllers/CommentController.php:46:        $comment = $issue->comments()->create($data);
+app/Http/Controllers/CommentController.php:50:            'comment' => [
+app/Http/Controllers/CommentController.php:51:                'id'               => $comment->id,
+app/Http/Controllers/CommentController.php:52:                'author_name'      => $comment->author_name,
+app/Http/Controllers/CommentController.php:53:                'body'             => $comment->body,
+app/Http/Controllers/CommentController.php:54:                'created_at'       => $comment->created_at->toDateTimeString(),
+app/Http/Controllers/CommentController.php:55:                'created_at_human' => $comment->created_at->diffForHumans(),
+app/Http/Controllers/IssueCommentController.php:6:use App\Models\Comment;
+app/Http/Controllers/IssueCommentController.php:12:use App\Http\Requests\CommentStoreRequest;
+app/Http/Controllers/IssueCommentController.php:15:class IssueCommentController extends Controller
+app/Http/Controllers/IssueCommentController.php:19:        $comments = $issue->comments()->latest()->paginate(10);
+app/Http/Controllers/IssueCommentController.php:20:        $html = View::make('issues.partials.comment-items', compact('comments'))->render();
+app/Http/Controllers/IssueCommentController.php:25:            'next' => $comments->nextPageUrl(),
+app/Http/Controllers/IssueCommentController.php:29:    public function store(CommentStoreRequest $request, Issue $issue): JsonResponse
+app/Http/Controllers/IssueCommentController.php:33:            $comment = new Comment();
+app/Http/Controllers/IssueCommentController.php:34:            $comment->author_name = $request->string('author_name');
+app/Http/Controllers/IssueCommentController.php:35:            $comment->body        = $request->string('body');
+app/Http/Controllers/IssueCommentController.php:36:            $issue->comments()->save($comment);
+app/Http/Controllers/IssueCommentController.php:39:            $html = View::make('issues.partials.comment-items', [
+app/Http/Controllers/IssueCommentController.php:40:                'comments' => new LengthAwarePaginator(
+app/Http/Controllers/IssueCommentController.php:41:                    collect([$comment->fresh()]), 1, 1, 1
+app/Http/Controllers/IssueCommentController.php:49:            Log::error('Comment create failed', [
+app/Http/Controllers/IssueCommentController.php:55:            return response()->json(['ok' => false, 'message' => 'Failed to add comment.'], 500);
+app/Http/Controllers/IssueController.php:24:        ->withCount('comments')
+resources/js/comments.js:2:  const root = document.querySelector('[data-comments-root]');
+resources/js/comments.js:10:  let nextUrl = `/issues/${issueId}/comments`;
+resources/js/comments.js:31:    const res = await fetch(`/issues/${issueId}/comments`, {
+resources/js/comments.js:39:    list.insertAdjacentHTML('afterbegin', data.html); // prepend new comment
+resources/js/app.js:4:import './comments.js';
+resources/views/issues/index.blade.php:86:          <th style="width:10%;">Comments</th>
+resources/views/issues/index.blade.php:119:          <td>{{ $issue->comments_count }}</td>
+resources/views/issues/_list.blade.php:10:    <th style="width:10%" class="text-end">Comments</th>
+resources/views/issues/_list.blade.php:33:      <td class="text-end">{{ $issue->comments_count }}</td>
+resources/views/issues/partials/comment-items.blade.php:1:@foreach($comments as $c)
+resources/views/issues/show.blade.php:143:     COMMENTS (AJAX list + add; prepend on add)
+resources/views/issues/show.blade.php:146:  <h4 class="mb-2">Comments</h4>
+resources/views/issues/show.blade.php:151:        <form id="comment-form" class="row g-2" action="{{ route('issues.comments.store', $issue) }}" method="post">
+resources/views/issues/show.blade.php:157:            <input name="body" class="form-control" placeholder="Write a comment…" maxlength="2000" required>
+resources/views/issues/show.blade.php:162:          <div id="comment-errors" class="text-danger small mt-2 d-none"></div>
+resources/views/issues/show.blade.php:168:      <a href="{{ route('login') }}">Sign in</a> to add a comment.
+resources/views/issues/show.blade.php:172:  <div id="comments-list"></div>
+resources/views/issues/show.blade.php:187:  // COMMENTS: load & add
+resources/views/issues/show.blade.php:189:  const commentsList = $('#comments-list');
+resources/views/issues/show.blade.php:191:  let   nextUrl      = "{{ route('issues.comments.index', $issue) }}";
+resources/views/issues/show.blade.php:193:  async function loadComments(url, append=false) {
+resources/views/issues/show.blade.php:200:      if (append) commentsList.insertAdjacentHTML('beforeend', data.html);
+resources/views/issues/show.blade.php:201:      else        commentsList.innerHTML = data.html;
+resources/views/issues/show.blade.php:207:  // initial page of comments
+resources/views/issues/show.blade.php:208:  loadComments(nextUrl);
+resources/views/issues/show.blade.php:210:  moreBtn?.addEventListener('click', () => nextUrl && loadComments(nextUrl, true));
+resources/views/issues/show.blade.php:212:  $('#comment-form')?.addEventListener('submit', async (e) => {
+resources/views/issues/show.blade.php:215:    const errEl = $('#comment-errors');
+resources/views/issues/show.blade.php:226:        commentsList.insertAdjacentHTML('afterbegin', data.html); // prepend
+resources/views/issues/show.blade.php:240:        errEl.textContent = 'You are commenting too fast. Try again shortly.';
+resources/views/issues/show.blade.php:245:        errEl.textContent = 'Failed to add comment.';
+routes/web.php.save:7:use App\Http\Controllers\CommentController;
+routes/web.php.save:17:Route::get('/issues/{issue}/comments', [CommentController::class, 'index'])->name('issues.comments.index');
+routes/web.php.save:18:Route::post('/issues/{issue}/comments', [CommentController::class, 'store'])->name('issues.comments.store');
+routes/console.php:7:    $this->comment(Inspiring::quote());
+routes/web.php:12:    IssueCommentController,
+routes/web.php:66:// ------------------- AJAX: Comments (list + create) -------------------
+routes/web.php:67:Route::get   ('/issues/{issue}/comments', [IssueCommentController::class, 'index'])
+routes/web.php:68:    ->name('issues.comments.index');
+routes/web.php:70:Route::post  ('/issues/{issue}/comments', [IssueCommentController::class, 'store'])
+routes/web.php:72:    ->name('issues.comments.store');

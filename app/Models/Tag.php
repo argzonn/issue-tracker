@@ -10,7 +10,25 @@ class Tag extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name','color'];
+    protected $fillable = ['name', 'color'];
 
-    public function issues(): BelongsToMany { return $this->belongsToMany(Issue::class); }
+    public function setColorAttribute($value): void
+    {
+        $val = trim((string) $value);
+
+        if ($val !== '' && $val[0] !== '#') {
+            $val = '#' . $val;
+        }
+        // Optional hardening:
+        // if (preg_match('/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', $val) !== 1) {
+        //     $val = null;
+        // }
+
+        $this->attributes['color'] = $val;
+    }
+
+    public function issues(): BelongsToMany
+    {
+        return $this->belongsToMany(Issue::class);
+    }
 }

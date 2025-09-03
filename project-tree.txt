@@ -1,0 +1,163 @@
+.
+├── README.md
+├── app
+│   ├── Console
+│   │   └── Commands
+│   │       └── ListUsers.php
+│   ├── Domain
+│   │   ├── IssuePriority.php
+│   │   └── IssueStatus
+│   ├── Http
+│   │   ├── Controllers
+│   │   │   ├── Auth
+│   │   │   ├── CommentController.php
+│   │   │   ├── Controller.php
+│   │   │   ├── IssueAssigneeController.php
+│   │   │   ├── IssueCommentController.php
+│   │   │   ├── IssueController.php
+│   │   │   ├── IssueMemberController.php
+│   │   │   ├── IssueSearchController.php
+│   │   │   ├── IssueTagController.php
+│   │   │   ├── ProjectController.php
+│   │   │   └── TagController.php
+│   │   └── Requests
+│   │       ├── CommentStoreRequest
+│   │       ├── IssueAssigneeStoreRequest.php
+│   │       ├── IssueTagStoreRequest.php
+│   │       ├── StoreIssueRequest.php
+│   │       ├── StoreProjectRequest.php
+│   │       ├── StoreTagRequest.php
+│   │       ├── UpdateIssueRequest.php
+│   │       └── UpdateProjectRequest.php
+│   ├── Models
+│   │   ├── Comment.php
+│   │   ├── Issue.php
+│   │   ├── Project.php
+│   │   ├── Tag.php
+│   │   └── User.php
+│   ├── Policies
+│   │   ├── IssuePolicy.php
+│   │   └── ProjectPolicy.php
+│   ├── Providers
+│   │   ├── AppServiceProvider.php
+│   │   └── AuthServiceProvider.php
+│   └── Support
+│       └── ViewHelpers.php
+├── artisan
+├── bootstrap
+│   ├── app.php
+│   ├── cache
+│   │   ├── packages.php
+│   │   └── services.php
+│   └── providers.php
+├── composer.json
+├── composer.lock
+├── config
+│   ├── app.php
+│   ├── auth.php
+│   ├── cache.php
+│   ├── database.php
+│   ├── filesystems.php
+│   ├── logging.php
+│   ├── mail.php
+│   ├── queue.php
+│   ├── services.php
+│   └── session.php
+├── database
+│   ├── database.sqlite
+│   ├── factories
+│   │   ├── CommentFactory.php
+│   │   ├── IssueFactory.php
+│   │   ├── ProjectFactory.php
+│   │   ├── TagFactory.php
+│   │   └── UserFactory.php
+│   ├── migrations
+│   │   ├── 0001_01_01_000000_create_users_table.php
+│   │   ├── 0001_01_01_000001_create_cache_table.php
+│   │   ├── 0001_01_01_000002_create_jobs_table.php
+│   │   ├── 2025_08_29_110753_create_comments_table.php
+│   │   ├── 2025_08_29_110753_create_issues_table.php
+│   │   ├── 2025_08_29_110753_create_projects_table.php
+│   │   ├── 2025_08_29_110753_create_tags_table.php
+│   │   ├── 2025_08_29_110754_create_issue_tag_table.php
+│   │   ├── 2025_08_29_110800_add_dates_to_projects_table.php
+│   │   ├── 2025_08_30_000001_create_issue_user_table.php
+│   │   ├── 2025_08_30_195944_add_user_id_to_projects_table.php
+│   │   ├── 2025_08_31_000001_add_is_public_to_projects_table.php
+│   │   ├── 2025_08_31_100000_create_issue_user_table.php
+│   │   ├── 2025_08_31_102000_add_indexes_to_issues_table.php
+│   │   ├── 2025_08_31_210000_add_timestamps_to_issue_tag.php
+│   │   ├── 2025_09_01_121500_add_owner_id_to_projects_table.php
+│   │   ├── 2025_09_01_225858_backfill_owner_id_on_projects.php
+│   │   └── 2025_09_02_171900_harden_issue_tag_pivot.php
+│   └── seeders
+│       └── DatabaseSeeder.php
+├── issue-tracker-audit.zip
+├── issue-tracker.zip
+├── package-lock.json
+├── package.json
+├── phpunit.xml
+├── project-tree.txt
+├── project_tree.txt
+├── public
+│   ├── build
+│   │   ├── assets
+│   │   │   ├── app-DtCVKgHt.js
+│   │   │   └── app-lO4ygeKI.css
+│   │   └── manifest.json
+│   ├── favicon.ico
+│   ├── index.php
+│   └── robots.txt
+├── resources
+│   ├── css
+│   │   └── app.css
+│   ├── js
+│   │   ├── app.js
+│   │   ├── assignees.js
+│   │   ├── bootstrap.js
+│   │   ├── comments.js
+│   │   ├── issue-search.js
+│   │   └── tags.js
+│   └── views
+│       ├── auth
+│       │   └── login.blade.php
+│       ├── components
+│       │   └── field-error.blade.php
+│       ├── index.blade.php
+│       ├── issues
+│       │   ├── _list.blade.php
+│       │   ├── choose-project.blade.php
+│       │   ├── create.blade.php
+│       │   ├── edit.blade.php
+│       │   ├── form.blade.php
+│       │   ├── index.blade.php
+│       │   ├── partials
+│       │   └── show.blade.php
+│       ├── layouts
+│       │   └── app.blade.php
+│       ├── projects
+│       │   ├── create.blade.php
+│       │   ├── edit.blade.php
+│       │   ├── form.blade.php
+│       │   ├── index.blade.php
+│       │   └── show.blade.php
+│       ├── tags
+│       │   ├── edit.blade.php
+│       │   ├── form.blade.php
+│       │   └── index.blade.php
+│       └── welcome.blade.php
+├── route_issues.txt
+├── routes
+│   ├── console.php
+│   ├── web.php
+│   └── web.php.save
+├── should
+├── tests
+│   ├── Feature
+│   │   └── ExampleTest.php
+│   ├── TestCase.php
+│   └── Unit
+│       └── ExampleTest.php
+└── vite.config.js
+
+38 directories, 123 files
