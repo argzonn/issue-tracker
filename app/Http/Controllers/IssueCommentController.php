@@ -3,34 +3,37 @@
 namespace App\Http\Controllers;
 
 use App\Models\Issue;
+use Illuminate\Http\Request;
 use App\Http\Requests\IssueCommentStoreRequest;
 
 class IssueCommentController extends Controller
 {
-    public function store(IssueCommentStoreRequest $request, Issue $issue)
+    public function index(Request $request, Issue $issue)
     {
-        // Optional: ensure viewer can access the project/issue
-        $this->authorize('view', $issue->project);
+        $comments = $issue->comments()->latest()->paginate(10);
 
-        $comment = $issue->comments()->create([
-            'user_id' => $request->user()->id,
-            'body'    => $request->validated('body'),
-        ])->load('user');
-
-        // Reuse the same partial to render a single item
         $html = view('issues.partials.comment-items', [
-            'comments' => collect([$comment]),
+            'comments' => $comments->items(),
         ])->render();
 
         return response()->json([
-            'ok'      => true,
-            'html'    => $html,
-            'count'   => $issue->comments()->count(),
-            'comment' => [
-                'id'   => $comment->id,
-                'at'   => $comment->created_at->toDateTimeString(),
-                'user' => $comment->user->only(['id','name']),
-            ],
+            'html' => $html,
+            'next' => $comments->hasMorePages() ? $comments->nextPageUrl() : null,
         ]);
+    }
+
+    public function store(IssueCommentStoreRequest $request, Issue $issue)
+    {
+        $comment = $issue->comments()->create($request->validated());
+
+        $html = view('issues.partials.comment-items', [
+            'comments' => [$comment],
+        ])->render();
+
+        return response()->json([
+            'ok'    => true,
+            'html'  => $html,
+            'count' => $issue->comments()->count(),
+        ], 201);
     }
 }
