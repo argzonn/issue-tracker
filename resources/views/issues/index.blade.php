@@ -1,41 +1,48 @@
 @extends('layouts.app')
+@section('title', 'Issues')
 
 @section('content')
 <div class="container">
-  <h1 class="mb-3">Issues</h1>
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">Issues</h1>
+    @auth
+      <a href="{{ route('issues.create') }}" class="btn btn-primary">New Issue</a>
+    @endauth
+  </div>
 
-  {{-- Unified filters/search FORM (AJAX reads from this) --}}
-  <form id="issue-filters" class="row g-2 mb-3" autocomplete="off">
+  {{-- Filters / Search (pure GET; selects auto-submit) --}}
+  <form class="row g-2 mb-3" method="GET" action="{{ route('issues.index') }}" autocomplete="off">
     {{-- Search --}}
     <div class="col-md-4">
-      <input id="search-input" name="q" class="form-control"
+      <input name="q"
+             class="form-control"
              placeholder="Search title or description…"
              value="{{ request('q', '') }}">
     </div>
 
     {{-- Status --}}
     <div class="col-md-2">
-      <select name="status" class="form-select">
+      <select name="status" class="form-select" onchange="this.form.submit()">
         <option value="">Status</option>
-        @foreach(['open','in_progress','closed'] as $s)
-          <option value="{{ $s }}" @selected(request('status')===$s)>{{ $s }}</option>
+        @foreach(\App\Models\Issue::STATUSES as $s)
+          <option value="{{ $s }}" @selected(request('status')===$s)>{{ \Illuminate\Support\Str::headline($s) }}</option>
         @endforeach
       </select>
     </div>
 
     {{-- Priority --}}
     <div class="col-md-2">
-      <select name="priority" class="form-select">
+      <select name="priority" class="form-select" onchange="this.form.submit()">
         <option value="">Priority</option>
-        @foreach(['low','medium','high'] as $p)
-          <option value="{{ $p }}" @selected(request('priority')===$p)>{{ $p }}</option>
+        @foreach(\App\Models\Issue::PRIORITIES as $p)
+          <option value="{{ $p }}" @selected(request('priority')===$p)>{{ \Illuminate\Support\Str::headline($p) }}</option>
         @endforeach
       </select>
     </div>
 
     {{-- Tag --}}
     <div class="col-md-2">
-      <select name="tag_id" class="form-select">
+      <select name="tag_id" class="form-select" onchange="this.form.submit()">
         <option value="">Tag</option>
         @foreach($tags as $t)
           <option value="{{ $t->id }}" @selected((string)request('tag_id')===(string)$t->id)>{{ $t->name }}</option>
@@ -46,88 +53,79 @@
     {{-- Sort --}}
     <div class="col-md-2">
       @php $sort = request('sort'); @endphp
-      <select name="sort" class="form-select">
+      <select name="sort" class="form-select" onchange="this.form.submit()">
         <option value="">Sort: Newest</option>
         <option value="due_asc"   @selected($sort==='due_asc')>Due date ↑</option>
-        <option value="prio_desc" @selected($sort==='prio_desc')>Priority: high→low</option>
+        <option value="due_desc"  @selected($sort==='due_desc')>Due date ↓</option>
+        <option value="prio_asc"  @selected($sort==='prio_asc')>Priority ↑</option>
+        <option value="prio_desc" @selected($sort==='prio_desc')>Priority ↓</option>
       </select>
     </div>
 
     <div class="col-12 d-flex gap-2 mt-1">
       <a class="btn btn-outline-secondary btn-sm" href="{{ route('issues.index') }}">Clear</a>
-      <a class="btn btn-primary btn-sm ms-auto" href="{{ route('issues.create') }}">New Issue</a>
+      <button type="submit" class="btn btn-primary btn-sm">Apply</button>
     </div>
-
-    {{-- Non-AJAX fallback submit (hidden) --}}
-    <button type="submit" class="d-none">Apply</button>
   </form>
 
-  {{-- LIST CONTAINER (AJAX renders into here) --}}
-  <div id="issue-list">
-    <div class="row mb-3">
-  <div class="col-md-6">
-    <input id="issueSearch" class="form-control" placeholder="Search issues…">
+  @php
+    $statusMap   = ['open'=>'secondary','in_progress'=>'info','closed'=>'success'];
+    $priorityMap = ['low'=>'secondary','medium'=>'primary','high'=>'warning','urgent'=>'danger'];
+  @endphp
+
+  <div class="table-responsive">
+    <table class="table align-middle">
+      <thead>
+        <tr>
+          <th style="width:70px;">#</th>
+          <th>Title</th>
+          <th style="width:18%;">Project</th>
+          <th style="width:12%;">Status</th>
+          <th style="width:12%;">Priority</th>
+          <th style="width:10%;">Due</th>
+          <th style="width:10%;">Comments</th>
+        </tr>
+      </thead>
+      <tbody>
+      @forelse($issues as $issue)
+        <tr>
+          {{-- Row number (NOT DB id) --}}
+          <td>
+            @if($issues instanceof \Illuminate\Pagination\LengthAwarePaginator || $issues instanceof \Illuminate\Pagination\Paginator)
+              {{ $issues->firstItem() + $loop->index }}
+            @else
+              {{ $loop->iteration }}
+            @endif
+          </td>
+
+          <td>
+            <a href="{{ route('issues.show', $issue) }}">{{ $issue->title }}</a>
+            <div class="text-muted small">{{ \Illuminate\Support\Str::limit($issue->description, 140) }}</div>
+          </td>
+
+          <td>{{ $issue->project?->name ?? '—' }}</td>
+
+          <td>
+            @php $cls = $statusMap[$issue->status] ?? 'secondary'; @endphp
+            <span class="badge bg-{{ $cls }}">{{ \Illuminate\Support\Str::headline($issue->status) }}</span>
+          </td>
+
+          <td>
+            @php $cls = $priorityMap[$issue->priority] ?? 'secondary'; @endphp
+            <span class="badge bg-{{ $cls }}">{{ \Illuminate\Support\Str::headline($issue->priority) }}</span>
+          </td>
+
+          <td>{{ optional($issue->due_date)->toDateString() ?? '—' }}</td>
+          <td>{{ $issue->comments()->count() }}</td>
+        </tr>
+      @empty
+        <tr><td colspan="7" class="text-center text-muted">No issues found.</td></tr>
+      @endforelse
+      </tbody>
+    </table>
   </div>
+
+  {{-- Bootstrap pager (AppServiceProvider::boot -> Paginator::useBootstrapFive()) --}}
+  {{ $issues->withQueryString()->links() }}
 </div>
-    @include('issues._list', ['issues' => $issues])
-  </div>
-</div>
-
-{{-- Inline JS: debounce typing, AJAX load, hijack pagination --}}
-<script>
-(() => {
-  const form = document.getElementById('issue-filters');
-  const list = document.getElementById('issue-list');
-  const input = document.getElementById('search-input');
-
-  // Debounce helper
-  let timer = null;
-  const debounce = (fn, ms = 350) => (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn.apply(null, args), ms);
-  };
-
-  // Serialize form -> URLSearchParams
-  function formParams() {
-    const fd = new FormData(form);
-    return new URLSearchParams(fd);
-  }
-
-  // Build URL with current filters
-  function buildUrl(base = '{{ route('issues.index') }}') {
-    const qs = formParams().toString();
-    return qs ? `${base}?${qs}` : base;
-  }
-
-  // Fetch list partial
-  async function load(url) {
-    const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
-    if (!res.ok) return;
-    list.innerHTML = await res.text();
-  }
-
-  // 1) Debounced search typing
-  input.addEventListener('input', debounce(() => {
-    load(buildUrl());
-  }, 350));
-
-  // 2) Any select change triggers reload (status/priority/tag/sort)
-  form.addEventListener('change', (e) => {
-    if (e.target === input) return;
-    load(buildUrl());
-  });
-
-  // 3) Hijack pagination links inside the list and AJAX them
-  list.addEventListener('click', (e) => {
-    const a = e.target.closest('.pagination a, a.page-link');
-    if (!a) return;
-    e.preventDefault();
-    const pageUrl = new URL(a.href);
-    const params = formParams();
-    // Merge page params
-    for (const [k, v] of pageUrl.searchParams.entries()) params.set(k, v);
-    load(`{{ route('issues.index') }}?${params.toString()}`);
-  });
-})();
-</script>
 @endsection
