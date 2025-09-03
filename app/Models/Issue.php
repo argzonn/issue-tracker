@@ -35,7 +35,8 @@ class Issue extends Model
 
     public function tags()
     {
-        return $this->belongsToMany(Tag::class)->withTimestamps();
+        return $this->belongsToMany(\App\Models\Tag::class)->withTimestamps();
+
     }
 
     public function comments()
@@ -45,7 +46,7 @@ class Issue extends Model
 
     public function assignees()
     {
-        return $this->belongsToMany(User::class, 'issue_user')->withTimestamps();
+        return $this->belongsToMany(\App\Models\User::class, 'issue_user')->withTimestamps();
     }
 
     // Scopes

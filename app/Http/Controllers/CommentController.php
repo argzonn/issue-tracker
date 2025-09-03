@@ -1,59 +1,34 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreCommentRequest;
+use App\Http\Requests\IssueCommentStoreRequest;
 use App\Models\Issue;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class CommentController extends Controller
 {
-    /**
-     * Require login only for creating comments.
-     * Index remains public.
-     */
-    public function __construct()
+    public function store(IssueCommentStoreRequest $request, Issue $issue): JsonResponse
     {
-        $this->middleware('auth')->only('store'); // ← added
-    }
+        try {
+            // Support exact spec fields; also tolerate legacy 'author'/'content' names.
+            $data = $request->validated();
+            $data['author_name'] = $data['author_name'] ?? $request->input('author');
+            $data['body']        = $data['body'] ?? $request->input('content');
 
-    public function index(Issue $issue)
-    {
-        $perPage = (int) request('per_page', 5);
-        $comments = $issue->comments()->latest()->paginate($perPage);
+            $comment = $issue->comments()->create([
+                'author_name' => $data['author_name'],
+                'body'        => $data['body'],
+            ]);
 
-        return response()->json([
-            'data' => $comments->getCollection()->map(fn($c) => [
-                'id'               => $c->id,
-                'author_name'      => $c->author_name,
-                'body'             => $c->body,
-                'created_at'       => $c->created_at->toDateTimeString(),
-                'created_at_human' => $c->created_at->diffForHumans(),
-            ]),
-            'next_page_url' => $comments->nextPageUrl(),
-        ]);
-    }
+            $html = view('issues.partials._comment', compact('comment'))->render();
 
-    public function store(StoreCommentRequest $request, Issue $issue)
-    {
-        // Use validated data, but trust the authenticated user for author_name
-        $data = $request->validated();
-
-        // If the route is 'auth' only, this is always set; still guard just in case.
-        if ($request->user()) {
-            $data['author_name'] = $request->user()->name; // ← force from session (prevents spoof)
+            return response()->json(['ok' => true, 'html' => $html], 201);
+        } catch (Throwable $e) {
+            Log::error('Comment store failed', ['exception' => $e]);
+            return response()->json(['ok' => false, 'message' => 'Server error while adding comment.'], 500);
         }
-
-        $comment = $issue->comments()->create($data);
-
-        return response()->json([
-            'ok'      => true,
-            'comment' => [
-                'id'               => $comment->id,
-                'author_name'      => $comment->author_name,
-                'body'             => $comment->body,
-                'created_at'       => $comment->created_at->toDateTimeString(),
-                'created_at_human' => $comment->created_at->diffForHumans(),
-            ],
-        ], 201);
     }
 }

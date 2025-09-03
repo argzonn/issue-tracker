@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace App\Models;
 
@@ -9,8 +9,7 @@ class Comment extends Model
 {
     use HasFactory;
 
-    // Make writes impossible to fail because of mass-assignment rules
-    protected $guarded = []; // ['issue_id','author_name','body'] would also work
+    protected $fillable = ['author_name', 'body'];
 
     public function issue()
     {

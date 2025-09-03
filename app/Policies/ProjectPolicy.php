@@ -45,9 +45,9 @@ class ProjectPolicy
 
     // Only owner can modify
     public function update(User $user, Project $project): bool
-    {
-        return (int)$user->id === (int)$project->owner_id;
-    }
+{
+    return $project->owner_id === $user->id || $user->is_admin ?? false;
+}
 
     public function delete(User $user, Project $project): bool
     {

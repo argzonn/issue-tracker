@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace App\Http\Requests;
 
@@ -8,14 +8,14 @@ class IssueCommentStoreRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        // If your policy is on Issue or Project, you can check here if needed
-        return auth()->check();
+        return true;
     }
 
     public function rules(): array
     {
         return [
-            'body' => ['required','string','min:1','max:5000'],
+            'author_name' => ['required', 'string', 'max:100'],
+            'body'        => ['required', 'string', 'max:2000'],
         ];
     }
 }

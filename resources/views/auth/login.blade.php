@@ -14,7 +14,7 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('login.perform') }}">
+    <form method="POST" action="{{ route('login.store') }}">
         @csrf
         <div style="margin-bottom:.75rem;">
             <label for="email">Email</label>

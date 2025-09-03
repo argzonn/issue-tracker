@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
@@ -10,17 +10,28 @@ class IssueTagController extends Controller
 {
     public function attach(Issue $issue, Tag $tag): JsonResponse
     {
-        $this->authorize('update', $issue->project); // owner-only
+        $this->authorize('update', $issue->project);
+
+        // avoid duplicate pivot rows
         $issue->tags()->syncWithoutDetaching([$tag->id]);
-        $html = view('issues.partials.tag-chips', ['issue' => $issue->fresh('tags')])->render();
-        return response()->json(['ok' => true, 'html' => $html], 200);
+
+        // reload relations and render chips
+        $issue->load('tags:id,name,color');
+
+        $html = view('issues.partials._tags', compact('issue'))->render();
+
+        return response()->json(['ok' => true, 'html' => $html]);
     }
 
     public function detach(Issue $issue, Tag $tag): JsonResponse
     {
         $this->authorize('update', $issue->project);
+
         $issue->tags()->detach($tag->id);
-        $html = view('issues.partials.tag-chips', ['issue' => $issue->fresh('tags')])->render();
-        return response()->json(['ok' => true, 'html' => $html], 200);
+        $issue->load('tags:id,name,color');
+
+        $html = view('issues.partials._tags', compact('issue'))->render();
+
+        return response()->json(['ok' => true, 'html' => $html]);
     }
 }

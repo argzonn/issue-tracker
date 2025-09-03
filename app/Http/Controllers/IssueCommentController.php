@@ -1,36 +1,44 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\Issue;
 use App\Http\Requests\IssueCommentStoreRequest;
+use App\Models\Issue;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class IssueCommentController extends Controller
 {
-    public function store(IssueCommentStoreRequest $request, Issue $issue)
+    public function store(IssueCommentStoreRequest $request, Issue $issue): JsonResponse
     {
-        // Optional: ensure viewer can access the project/issue
-        $this->authorize('view', $issue->project);
+        try {
+            // Prefer validated spec names
+            $data = $request->validated();
 
-        $comment = $issue->comments()->create([
-            'user_id' => $request->user()->id,
-            'body'    => $request->validated('body'),
-        ])->load('user');
+            // Fallback tolerance if your front-end previously used different names
+            $data['author_name'] = $data['author_name'] ?? $request->input('author');
+            $data['body']        = $data['body'] ?? $request->input('content');
 
-        // Reuse the same partial to render a single item
-        $html = view('issues.partials.comment-items', [
-            'comments' => collect([$comment]),
-        ])->render();
+            // Extra guard: if still missing, force a 422 (not 500)
+            if (!isset($data['author_name']) || $data['author_name'] === null || $data['author_name'] === '') {
+                return response()->json(['ok' => false, 'errors' => ['author_name' => ['Author is required.']]], 422);
+            }
+            if (!isset($data['body']) || $data['body'] === null || $data['body'] === '') {
+                return response()->json(['ok' => false, 'errors' => ['body' => ['Body is required.']]], 422);
+            }
 
-        return response()->json([
-            'ok'      => true,
-            'html'    => $html,
-            'count'   => $issue->comments()->count(),
-            'comment' => [
-                'id'   => $comment->id,
-                'at'   => $comment->created_at->toDateTimeString(),
-                'user' => $comment->user->only(['id','name']),
-            ],
-        ]);
+            $comment = $issue->comments()->create([
+                'author_name' => $data['author_name'],
+                'body'        => $data['body'],
+            ]);
+
+            $html = view('issues.partials._comment', compact('comment'))->render();
+
+            return response()->json(['ok' => true, 'html' => $html], 201);
+        } catch (Throwable $e) {
+            Log::error('Issue comment store failed', ['exception' => $e]);
+            return response()->json(['ok' => false, 'message' => 'Server error while adding comment.'], 500);
+        }
     }
 }

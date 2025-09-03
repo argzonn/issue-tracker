@@ -6,7 +6,6 @@
 @php
     use Illuminate\Support\Str;
 
-    // Fallback badge maps (works even if partials are not present)
     $statusClass = [
         'open' => 'success',
         'in_progress' => 'warning',
@@ -19,7 +18,7 @@
         'high' => 'danger',
     ][$issue->priority] ?? 'light';
 
-    // If controller didn't pass these, fall back safely (still better to pass from controller)
+    // Fallbacks if controller didn't pass them
     $allTags  = $allTags  ?? \App\Models\Tag::query()->orderBy('name')->get(['id','name','color']);
     $allUsers = $allUsers ?? \App\Models\User::query()->orderBy('name')->get(['id','name']);
 @endphp
@@ -76,7 +75,6 @@
     @endcan
   </div>
 
-  {{-- Chips container is always present so we can swap its HTML via AJAX --}}
   <div id="tag-chips" class="d-flex flex-wrap gap-2">
     @forelse($issue->tags as $t)
       <span class="badge rounded-pill text-bg-secondary align-middle" data-tag-id="{{ $t->id }}">
@@ -85,9 +83,7 @@
         @endif
         {{ e($t->name) }}
         @can('update', $issue->project)
-          <button type="button" class="btn btn-sm btn-link text-white ms-1 p-0 align-baseline tag-detach" data-tag-id="{{ $t->id }}">
-            <span class="visually-hidden">Remove tag</span>✕
-          </button>
+          <button type="button" class="btn btn-sm btn-link text-white ms-1 p-0 align-baseline tag-detach" data-tag-id="{{ $t->id }}" aria-label="Remove tag">✕</button>
         @endcan
       </span>
     @empty
@@ -124,9 +120,7 @@
       <span class="badge rounded-pill text-bg-secondary align-middle" data-user-id="{{ $u->id }}">
         {{ e($u->name) }}
         @can('update', $issue->project)
-          <button type="button" class="btn btn-sm btn-link text-white ms-1 p-0 align-baseline assignee-detach" data-user-id="{{ $u->id }}">
-            <span class="visually-hidden">Remove assignee</span>✕
-          </button>
+          <button type="button" class="btn btn-sm btn-link text-white ms-1 p-0 align-baseline assignee-detach" data-user-id="{{ $u->id }}" aria-label="Remove assignee">✕</button>
         @endcan
       </span>
     @empty
@@ -140,7 +134,7 @@
 <hr class="my-4">
 
 {{-- =========================
-     COMMENTS (AJAX list + add; prepend on add)
+     COMMENTS (server render + AJAX add; prepend on add)
    ========================= --}}
 <section class="mb-4">
   <h4 class="mb-2">Comments</h4>
@@ -148,10 +142,10 @@
   @auth
     <div class="card mb-3">
       <div class="card-body">
-        <form id="comment-form" class="row g-2" action="{{ route('issues.comments.store', $issue) }}" method="post">
+        <form id="commentForm" class="row g-2" action="{{ route('issues.comments.store', $issue) }}" method="post">
           @csrf
           <div class="col-md-3">
-            <input name="author_name" class="form-control" placeholder="Your name" maxlength="80" required>
+            <input name="author_name" class="form-control" placeholder="Your name" maxlength="100" required>
           </div>
           <div class="col-md-7">
             <input name="body" class="form-control" placeholder="Write a comment…" maxlength="2000" required>
@@ -159,7 +153,7 @@
           <div class="col-md-2">
             <button class="btn btn-primary w-100" type="submit">Add</button>
           </div>
-          <div id="comment-errors" class="text-danger small mt-2 d-none"></div>
+          <div id="commentError" class="text-danger small mt-2 d-none"></div>
         </form>
       </div>
     </div>
@@ -169,8 +163,12 @@
     </p>
   @endauth
 
-  <div id="comments-list"></div>
-  <button id="btn-load-more" class="btn btn-outline-secondary d-none" type="button">Load more</button>
+  <ul id="commentsList" class="list-group">
+    @foreach($issue->comments()->latest()->paginate(10) as $comment)
+      @include('issues.partials._comment', ['comment' => $comment])
+    @endforeach
+  </ul>
+  {{-- If you want pagination links for non-AJAX navigation, you could show them here --}}
 </section>
 @endsection
 
@@ -178,72 +176,60 @@
 <script>
 (function() {
   const issueId = {{ $issue->id }};
-  const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+  const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+  const csrf = csrfMeta ? csrfMeta.getAttribute('content') : '{{ csrf_token() }}';
 
   const $  = (sel, el=document) => el.querySelector(sel);
-  const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
 
   // -----------------------
-  // COMMENTS: load & add
+  // COMMENTS: AJAX add
   // -----------------------
-  const commentsList = $('#comments-list');
-  const moreBtn      = $('#btn-load-more');
-  let   nextUrl      = "{{ route('issues.comments.index', $issue) }}";
+  const commentsList = $('#commentsList');
+  const form = $('#commentForm');
+  const errorBox = $('#commentError');
 
-  async function loadComments(url, append=false) {
-    if (!url) return;
-    const res  = await fetch(url, { headers: { 'X-Requested-With':'XMLHttpRequest', 'Accept':'application/json' }});
-    if (!res.ok) return;
-    const data = await res.json();
-
-    if (typeof data.html === 'string') {
-      if (append) commentsList.insertAdjacentHTML('beforeend', data.html);
-      else        commentsList.innerHTML = data.html;
-      nextUrl = data.next || null;
-      moreBtn.classList.toggle('d-none', !nextUrl);
-    }
-  }
-
-  // initial page of comments
-  loadComments(nextUrl);
-
-  moreBtn?.addEventListener('click', () => nextUrl && loadComments(nextUrl, true));
-
-  $('#comment-form')?.addEventListener('submit', async (e) => {
+  form && form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const form  = e.currentTarget;
-    const errEl = $('#comment-errors');
+    if (errorBox) { errorBox.classList.add('d-none'); errorBox.textContent = ''; }
 
-    const res = await fetch(form.action, {
-      method: 'POST',
-      headers: { 'X-Requested-With':'XMLHttpRequest', 'X-CSRF-TOKEN': csrf, 'Accept':'application/json' },
-      body: new FormData(form)
-    });
+    const fd = new FormData(form);
 
-    if (res.status === 201) {
+    try {
+      const res = await fetch(form.action, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRF-TOKEN': csrf,
+          'Accept': 'application/json'
+        },
+        body: fd
+      });
+
+      if (res.status === 422) {
+        const j = await res.json();
+        const first = Object.values(j.errors || {}).flat()[0] || 'Validation error.';
+        throw new Error(first);
+      }
+
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.message || 'Failed to add comment.');
+      }
+
       const data = await res.json();
-      if (typeof data.html === 'string') {
-        commentsList.insertAdjacentHTML('afterbegin', data.html); // prepend
+      if (data.ok && typeof data.html === 'string') {
+        const t = document.createElement('template');
+        t.innerHTML = data.html.trim();
+        const node = t.content.firstChild;
+        commentsList.prepend(node);        // PREPEND new comment
+        form.reset();                      // clear inputs
+      } else {
+        throw new Error('Unexpected server response.');
       }
-      form.reset();
-      errEl?.classList.add('d-none');
-      if (errEl) errEl.textContent = '';
-    } else if (res.status === 422) {
-      const j = await res.json();
-      const msgs = Object.values(j.errors || {}).flat();
-      if (errEl) {
-        errEl.textContent = msgs.join(' ');
-        errEl.classList.remove('d-none');
-      }
-    } else if (res.status === 429) {
-      if (errEl) {
-        errEl.textContent = 'You are commenting too fast. Try again shortly.';
-        errEl.classList.remove('d-none');
-      }
-    } else {
-      if (errEl) {
-        errEl.textContent = 'Failed to add comment.';
-        errEl.classList.remove('d-none');
+    } catch (err) {
+      if (errorBox) {
+        errorBox.textContent = err.message || 'Failed to add comment.';
+        errorBox.classList.remove('d-none');
       }
     }
   });
@@ -252,48 +238,40 @@
   // TAGS: attach / detach
   // -----------------------
   const tagErrors = $('#tag-errors');
-  $('#tag-attach-btn')?.addEventListener('click', async () => {
-    const select = $('#tag-select');
-    const tagId  = select?.value;
+  $('#tag-attach-btn') && $('#tag-attach-btn').addEventListener('click', async () => {
+    const select = $('#tag-select'); const tagId = select && select.value;
     if (!tagId) return;
 
     const res = await fetch(`/issues/${issueId}/tags/${tagId}`, {
       method: 'POST',
       headers: { 'X-Requested-With':'XMLHttpRequest', 'X-CSRF-TOKEN': csrf, 'Accept':'application/json' }
     });
-    try {
-      const data = await res.json();
-      if (res.ok && typeof data.html === 'string') {
-        $('#tag-chips').innerHTML = data.html;
-        select.value = '';
-        tagErrors?.classList.add('d-none');
-      } else {
-        throw new Error();
-      }
-    } catch {
-      if (tagErrors) { tagErrors.textContent = 'Failed to attach tag.'; tagErrors.classList.remove('d-none'); }
+
+    let data = null; try { data = await res.json(); } catch {}
+    if (res.ok && data && typeof data.html === 'string') {
+      $('#tag-chips').innerHTML = data.html;
+      select.value = '';
+      tagErrors && tagErrors.classList.add('d-none');
+    } else {
+      tagErrors && (tagErrors.textContent = 'Failed to attach tag.', tagErrors.classList.remove('d-none'));
     }
   });
 
-  $('#tag-chips')?.addEventListener('click', async (ev) => {
-    const btn = ev.target.closest('.tag-detach');
-    if (!btn) return;
+  $('#tag-chips') && $('#tag-chips').addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('.tag-detach'); if (!btn) return;
     const tagId = btn.getAttribute('data-tag-id');
 
     const res = await fetch(`/issues/${issueId}/tags/${tagId}`, {
       method: 'DELETE',
       headers: { 'X-Requested-With':'XMLHttpRequest', 'X-CSRF-TOKEN': csrf, 'Accept':'application/json' }
     });
-    try {
-      const data = await res.json();
-      if (res.ok && typeof data.html === 'string') {
-        $('#tag-chips').innerHTML = data.html;
-        tagErrors?.classList.add('d-none');
-      } else {
-        throw new Error();
-      }
-    } catch {
-      if (tagErrors) { tagErrors.textContent = 'Failed to detach tag.'; tagErrors.classList.remove('d-none'); }
+
+    let data = null; try { data = await res.json(); } catch {}
+    if (res.ok && data && typeof data.html === 'string') {
+      $('#tag-chips').innerHTML = data.html;
+      tagErrors && tagErrors.classList.add('d-none');
+    } else {
+      tagErrors && (tagErrors.textContent = 'Failed to detach tag.', tagErrors.classList.remove('d-none'));
     }
   });
 
@@ -302,9 +280,8 @@
   // -----------------------
   const assigneeErrors = $('#assignee-errors');
 
-  $('#assignee-attach-btn')?.addEventListener('click', async () => {
-    const select = $('#assignee-select');
-    const userId = select?.value;
+  $('#assignee-attach-btn') && $('#assignee-attach-btn').addEventListener('click', async () => {
+    const select = $('#assignee-select'); const userId = select && select.value;
     if (!userId) return;
 
     const res = await fetch(`/issues/${issueId}/assignees/${userId}`, {
@@ -316,15 +293,14 @@
     if (res.ok && data && typeof data.html === 'string') {
       $('#assignee-chips').innerHTML = data.html;
       select.value = '';
-      assigneeErrors?.classList.add('d-none');
+      assigneeErrors && assigneeErrors.classList.add('d-none');
     } else {
-      if (assigneeErrors) { assigneeErrors.textContent = 'Failed to assign user.'; assigneeErrors.classList.remove('d-none'); }
+      assigneeErrors && (assigneeErrors.textContent = 'Failed to assign user.', assigneeErrors.classList.remove('d-none'));
     }
   });
 
-  $('#assignee-chips')?.addEventListener('click', async (ev) => {
-    const btn = ev.target.closest('.assignee-detach');
-    if (!btn) return;
+  $('#assignee-chips') && $('#assignee-chips').addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('.assignee-detach'); if (!btn) return;
     const userId = btn.getAttribute('data-user-id');
 
     const res = await fetch(`/issues/${issueId}/assignees/${userId}`, {
@@ -335,12 +311,11 @@
     let data = null; try { data = await res.json(); } catch {}
     if (res.ok && data && typeof data.html === 'string') {
       $('#assignee-chips').innerHTML = data.html;
-      assigneeErrors?.classList.add('d-none');
+      assigneeErrors && assigneeErrors.classList.add('d-none');
     } else {
-      if (assigneeErrors) { assigneeErrors.textContent = 'Failed to remove assignee.'; assigneeErrors.classList.remove('d-none'); }
+      assigneeErrors && (assigneeErrors.textContent = 'Failed to remove assignee.', assigneeErrors.classList.remove('d-none'));
     }
   });
-
 })();
 </script>
 @endpush
