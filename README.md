@@ -20,7 +20,6 @@ Built to track issues — not create them. 😎
 ### Bonus
 - ✅ Assignees (many-to-many Users ⇄ Issues, AJAX attach/detach)
 - ✅ Authorization: only project owners can edit/delete, attach tags, assign users
-- ❌ AJAX search with debounce (skipped — optional)
 
 ---
 
