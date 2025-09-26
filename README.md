@@ -1,6 +1,6 @@
 # 🐛 Issue Tracker
 
-A lightweight Laravel issue tracker built for the **PRITECH Laravel Task**.  
+A lightweight Laravel issue tracker .  
 Built to track issues — not create them. 😎
 
 ![funny bug gif](https://media.giphy.com/media/l41YtZOb9EUABnuqA/giphy.gif)
